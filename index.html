@@ -172,6 +172,15 @@ body.mobile #installBtn{margin:0 0 0 6px;vertical-align:4px;font-size:8px;paddin
 #mlist2 li small{font-size:9.5px;opacity:.75}
 #mlist2 .empty{opacity:.7;font-size:11px;cursor:default}
 #miles{max-height:30%!important}
+#tourBtn{background:var(--mag);color:var(--ink);box-shadow:3px 3px 0 var(--yellow)}
+#tourBtn.on{background:var(--yellow)}
+#tourBan{position:fixed;left:50%;top:18px;transform:translateX(-50%) rotate(-1deg);z-index:6;pointer-events:none;text-align:center;background:var(--night);border:3px solid var(--cream);box-shadow:5px 5px 0 var(--mag);padding:8px 22px 10px;min-width:260px}
+#tourBan b{display:block;font-family:'Bungee Shade',cursive;font-weight:normal;font-size:44px;line-height:1;color:var(--yellow)}
+#tourEv{font-family:'Bungee';font-size:12px;letter-spacing:.5px;min-height:16px;margin-top:4px;color:var(--cream)}
+#tourBan i{display:block;height:5px;margin-top:6px;background:var(--ink);border:1px solid var(--cream);position:relative}
+#tourBan u{position:absolute;left:0;top:0;bottom:0;background:var(--mag)}
+body.mobile #tourBan{top:auto;bottom:calc(150px + env(safe-area-inset-bottom));min-width:220px}
+body.mobile #tourBan b{font-size:32px}
 #title h1{font-size:28px;white-space:nowrap;overflow:hidden}
 #title .sub{font-size:9.5px;letter-spacing:1.2px;line-height:1.4}
 .ptitle{font-family:'Bungee Shade',cursive;font-size:21px;line-height:1;color:var(--yellow);letter-spacing:1px;margin:0 0 4px}
@@ -225,6 +234,7 @@ body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
 </div>
 
 <div id="toast"></div>
+<div id="tourBan" hidden><b id="tourYear"></b><div id="tourEv"></div><i><u id="tourBar"></u></i></div>
 <div id="tip" hidden></div>
 <div id="egg"></div>
 <div id="installHelp" hidden><section><div></div><button>OK</button></section></div>
@@ -232,6 +242,7 @@ body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
 
 <div class="panel" id="views">
   <div class="vrow" id="vbtns">
+  <button id="tourBtn">⏳ Un voyage à travers le temps</button>
   <button data-v="solar">Système solaire</button>
   <button data-v="sys" class="on">Système interne</button>
   <button data-v="earth">Terre · L1 · L2</button>
@@ -441,13 +452,28 @@ function setView(v){target.view=v;
  else goalS={solar:m/(62*AU),sys:m/(3.55*AU),earth:m/(4.2e6),mars:m/(2.8*23463),voy:m/(400*AU)}[v];
  document.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===v));}
 document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>setView(b.dataset.v));
-document.getElementById('live').onclick=()=>{live=true;speed=1;sim=Date.now();marks()};
-document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{live=false;speed=+b.dataset.s;marks()});
+document.getElementById('live').onclick=()=>{if(tour)tourStop(false);live=true;speed=1;sim=Date.now();marks()};
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{if(tour)tourStop(false);live=false;speed=+b.dataset.s;marks()});
 function marks(){document.getElementById('live').classList.toggle('on',live);
  document.querySelectorAll('[data-s]').forEach(b=>b.classList.toggle('on',!live&&+b.dataset.s===speed));
  const t=document.getElementById('modeTag');t.textContent=live?'● EN DIRECT':'▶ SIMULATION ×'+speed.toLocaleString('fr');t.classList.toggle('live',live)}
+// ---------- « Un voyage à travers le temps » : du premier lancement à aujourd'hui en ~50 s ----------
+const TOUR_T0=Math.min(...MISSIONS.map(m=>m.launch))-30*864e5,TOUR_DUR=50000;
+let tour=null,tourEvT=0;
+function tourStop(back){tour=null;$id('tourBtn').classList.remove('on');$id('tourBtn').textContent='⏳ Un voyage à travers le temps';$id('tourBan').hidden=true;
+ if(back){live=true;speed=1;sim=Date.now();marks()}}
+$id('tourBtn').onclick=()=>{if(tour)return tourStop(true);
+ tour={start:performance.now(),end:Date.now(),prev:TOUR_T0};live=false;speed=0;sim=TOUR_T0;listTab='live';setView('sys');
+ $id('tourBtn').classList.add('on');$id('tourBtn').textContent='■ Arrêter le voyage';$id('tourBan').hidden=false;$id('tourEv').textContent='';marks();
+ $id('modeTag').textContent='⏳ VOYAGE DANS LE TEMPS'};
+function tourStep(now){const f=Math.min(1,(now-tour.start)/TOUR_DUR),e=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2; // accélère puis ralentit en arrivant à aujourd'hui
+ const prev=sim;sim=TOUR_T0+(tour.end-TOUR_T0)*e;
+ const ev=[];for(const m of MISSIONS){if(prev<m.launch&&m.launch<=sim)ev.push('🚀 Lancement : '+m.name);if(m.arrive&&prev<m.arrive&&m.arrive<=sim)ev.push('🎯 Arrivée : '+m.name);if(m.end&&prev<m.end&&m.end<=sim)ev.push('🏁 Fin : '+m.name)}
+ if(ev.length){$id('tourEv').textContent=ev.join(' · ');tourEvT=now}else if(now-tourEvT>2500)$id('tourEv').textContent='';
+ $id('tourYear').textContent=new Date(sim).getUTCFullYear();$id('tourBar').style.width=f*100+'%';
+ if(f>=1){tourStop(true);$id('tourEv').textContent=''}}
 const SL0=Date.UTC(1977,7,1),SL1=Date.UTC(2036,0,1),slider=document.getElementById('slider');
-slider.oninput=()=>{live=false;speed=speed===1?2592000:speed;sim=SL0+(SL1-SL0)*slider.value/1000;marks()};
+slider.oninput=()=>{if(tour)tourStop(false);live=false;speed=speed===1?2592000:speed;sim=SL0+(SL1-SL0)*slider.value/1000;marks()};
 
 // pan / zoom
 let drag=null,pinch=null;
@@ -675,7 +701,7 @@ function drawFrame(now){
  if(!(cam.s>0&&isFinite(cam.s)))cam.s=goalS;
  if(!isFinite(cam.x)||!isFinite(cam.y)){cam.x=0;cam.y=0}
  const dt=now-lastReal;lastReal=now;
- if(live)sim=Date.now();else{sim+=dt*speed;if(sim>SL1){sim=SL1}}
+ if(tour)tourStep(now);else if(live)sim=Date.now();else{sim+=dt*speed;if(sim>SL1){sim=SL1}}
  slider.value=Math.max(0,Math.min(1000,(sim-SL0)/(SL1-SL0)*1000));
  for(const m of MISSIONS)m.st=status(m,sim);
  // camera
