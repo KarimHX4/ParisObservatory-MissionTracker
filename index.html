@@ -172,6 +172,16 @@ body.mobile #installBtn{margin:0 0 0 6px;vertical-align:4px;font-size:8px;paddin
 #mlist2 li small{font-size:9.5px;opacity:.75}
 #mlist2 .empty{opacity:.7;font-size:11px;cursor:default}
 #miles{max-height:30%!important}
+#tip{position:fixed;z-index:8;pointer-events:none;background:var(--night);border:2px solid var(--cream);box-shadow:3px 3px 0 var(--orange);padding:6px 9px;font-size:11px;max-width:260px}
+#tip div{display:flex;align-items:center;gap:6px;font-family:'Bungee';font-size:11px;margin:2px 0}
+#tip div small{font-family:'Space Mono';font-size:9.5px;opacity:.75;margin-left:4px}
+#tip i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink);flex:0 0 9px}
+#tip em{display:block;font-style:normal;font-size:9.5px;color:var(--cyan);margin-top:3px}
+details#note summary{cursor:pointer;font-family:'Bungee';font-size:10px;letter-spacing:1px;color:var(--orange);list-style:none}
+details#note summary::before{content:'▸ '}details#note[open] summary::before{content:'▾ '}
+details#note[open] summary{margin-bottom:6px}
+#mlist2 li .when{margin-left:auto;text-align:right;font-size:9px;color:var(--cyan);white-space:nowrap}
+.card-sec{margin-top:12px}
 #milesName{color:var(--cream)}
 body.mobile #mini .mmName{font-family:'Bungee';font-size:11px;color:var(--yellow)}
 body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
@@ -191,7 +201,7 @@ body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
   <div id="mini"></div>
 </div>
 <div class="panel" id="card"></div>
-<div id="note">Site non officiel, réalisé à partir des pages publiques de l'Observatoire de Paris – PSL et des agences spatiales. Positions calculées (éphémérides képlériennes JPL, transferts de Lambert entre survols), non issues de la télémétrie : trajectoires simplifiées, orbites approximatives pour Parker Solar Probe, Solar Orbiter, Ulysses et STEREO-A ; missions proches de la Terre regroupées autour des points L1, L2 et de l'orbite terrestre. Les onglets dépendent de la date affichée. Molette ou pincement : zoom centré sur le curseur · glisser : déplacer · clic sur une mission ou un astre : le suivre.</div>
+<details id="note"><summary>À propos · limites · commandes</summary>Site non officiel, réalisé à partir des pages publiques de l'Observatoire de Paris – PSL et des agences spatiales. Positions calculées (éphémérides képlériennes JPL, transferts de Lambert entre survols), non issues de la télémétrie : trajectoires simplifiées, orbites approximatives pour Parker Solar Probe, Solar Orbiter, Ulysses et STEREO-A ; missions proches de la Terre regroupées autour des points L1, L2 et de l'orbite terrestre. Les onglets dépendent de la date affichée. Molette ou pincement : zoom centré sur le curseur · glisser : déplacer · clic sur une mission ou un astre : le suivre. La trajectoire n'est affichée que pour la mission suivie (trait : parcouru · pointillés : à venir).</details>
 </div>
 
 <div class="col" id="rightcol">
@@ -207,6 +217,7 @@ body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
 </div>
 
 <div id="toast"></div>
+<div id="tip" hidden></div>
 <div id="egg"></div>
 <div id="installHelp" hidden><section><div></div><button>OK</button></section></div>
 <div id="scale"><span id="scaleT"></span><div id="scaleB"></div></div>
@@ -216,9 +227,10 @@ body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
   <button data-v="solar">Système solaire</button>
   <button data-v="sys" class="on">Système interne</button>
   <button data-v="earth">Terre · L1 · L2</button>
-  <button data-v="sel">Mission suivie</button>
+  <button data-v="sel" id="selBtn">◎ Mission</button>
   <button data-v="mars">Mars</button>
   <button data-v="voy">Voyager</button>
+  <button id="trajBtn" class="on" title="Afficher la trajectoire de la mission suivie">Trajectoire</button>
   </div>
   <span class="sep"></span>
   <div class="vrow" id="tbtns">
@@ -397,7 +409,8 @@ resize();
 let live=true,speed=1,sim=Date.now(),lastReal=performance.now();
 let cam={x:0,y:0,s:Math.min(VW,VH)/(3.6*AU)},target={view:'sys'},goalS=cam.s;
 const stars=[...Array(700)].map(()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.3+.2,p:Math.random()*6,c:Math.random()<.15?'#ffd2a8':Math.random()<.2?'#a8d8ff':'#fff'}));
-let selId='mmx',listTab='live';
+let selId='mmx',listTab='live',showTraj=true;
+$id('trajBtn').onclick=()=>{showTraj=!showTraj;$id('trajBtn').classList.toggle('on',showTraj)};
 
 function viewCenter(){const v=target.view,t=sim;
  if(v==='earth')return planet('earth',t);if(v==='mars')return planet('mars',t);
@@ -458,7 +471,10 @@ cv.addEventListener('gesturestart',e=>{e.preventDefault();gScale=1;gActive=true}
 cv.addEventListener('gesturechange',e=>{e.preventDefault();const f=e.scale/gScale;gScale=e.scale;zoomAt(f,e.clientX||VX,e.clientY||VY)});
 cv.addEventListener('gestureend',e=>{e.preventDefault();gActive=false});
 cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};down={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId)});
-cv.addEventListener('pointermove',e=>{if(!drag||pinch)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+cv.addEventListener('pointermove',e=>{if(!drag&&e.pointerType==='mouse'){let hit=null;for(const dm of drawnMarks)if(Math.hypot(dm[1][0]-e.clientX,dm[1][1]-e.clientY)<16){hit=dm;break}
+  const tp=document.getElementById('tip');if(hit){tp.innerHTML=hit[2].map(m=>`<div><i style="background:${m.col}"></i>${m.name}<small>${m.dest}</small></div>`).join('')+(hit[0]==='cluster'?'<em>clic : zoomer</em>':'<em>clic : suivre</em>');
+   tp.style.left=e.clientX+14+'px';tp.style.top=e.clientY+14+'px';tp.hidden=false;cv.style.cursor='pointer'}else{tp.hidden=true;if(!atMax())cv.style.cursor=''}}
+ if(!drag||pinch)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
  if(Math.abs(dx)+Math.abs(dy)>2)freeView();
  if(!atMax()){cam.x-=dx/cam.s;cam.y+=dy/cam.s}drag={x:e.clientX,y:e.clientY}});
 let down=null;
@@ -480,8 +496,8 @@ function sultanaEgg(){sultanaOn=!sultanaOn;const el=document.getElementById('egg
  el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),3500)}
 cv.addEventListener('pointerup',e=>{drag=null;if(!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>4)return;down=null;
  const tnow=performance.now();taps=taps.filter(t=>tnow-t<1600);taps.push(tnow);if(taps.length>=5){taps=[];sultanaEgg();return}
- let bm=null,bmd=18;for(const [id,q] of drawnMarks){const d=Math.hypot(q[0]-e.clientX,q[1]-e.clientY);if(d<bmd){bmd=d;bm=id}}
- if(bm){select(bm,true);return}
+ let bm=null,bmd=18;for(const dm of drawnMarks){const d=Math.hypot(dm[1][0]-e.clientX,dm[1][1]-e.clientY);if(d<bmd){bmd=d;bm=dm}}
+ if(bm){if(bm[0]==='cluster'){if(bm[2].every(m=>m.pos.lag))setView('earth');else zoomAt(5,bm[1][0],bm[1][1])}else select(bm[0],true);return}
  const cands=[['earth','earth'],['mars','mars'],...DECOR.filter(d=>d[0]!=='sultana'||sultanaOn).map(d=>['b:'+d[0],d[0]])];let best=null,bd=16;
  for(const [v,n] of cands){const p=bodyPos(n,sim),q=S(p),d=Math.hypot(q[0]-e.clientX,q[1]-e.clientY);if(d<bd){bd=d;best=v}}
  if(best)setView(best)});
@@ -626,6 +642,10 @@ function drawIcon(c,q,kind,col,sz,ang,t){
   R(-16,-3.5,9,7,'#22306e');R(7,-3.5,9,7,'#22306e');R(-6,-6,12,12,col);
   c.beginPath();c.ellipse(0,-10,7,2.8,0,0,7);ol('#f6f4ee');c.beginPath();c.moveTo(0,-10);c.lineTo(0,-6);c.lineWidth=1.2;c.strokeStyle='#0b0d1f';c.stroke()}
  c.restore()}
+function offArrow(m,q){const a=Math.atan2(q[1]-VY,q[0]-VX),hw=VW/2-30,hh=VH/2-30,k=Math.min(Math.abs(hw/Math.cos(a)),Math.abs(hh/Math.sin(a)));
+ const ex=VX+Math.cos(a)*k,ey=VY+Math.sin(a)*k;cx.save();cx.translate(ex,ey);cx.rotate(a);cx.fillStyle=m.col;cx.strokeStyle='#0b0d1f';cx.lineWidth=2;
+ cx.beginPath();cx.moveTo(12,0);cx.lineTo(-6,-7);cx.lineTo(-6,7);cx.closePath();cx.fill();cx.stroke();cx.restore();
+ label([ex-Math.cos(a)*34,ey-Math.sin(a)*34],m.name.toUpperCase()+' →',m.col,4);drawnMarks.push([m.id,[ex,ey],[m]])}
 function drawMission(c,q,m,sz,t,sunAng){
  if(m.kind==='mmx')drawProbe(c,q,sz*1.6,sunAng+Math.PI/2,t,false);
  else if(m.kind==='voy')drawVoyager(c,q,sunAng,sz/22,m.col,t);
@@ -709,35 +729,43 @@ function drawFrame(now){
 
  // ---------- missions ----------
  const shown=MISSIONS.filter(m=>m.st===listTab||m.id===selId);
- // trajectoires : complète pour la mission suivie, segment en cours pour les autres
- for(const m of shown){const sel=m.id===selId,col=m.col;
-  if(m.pos.kep||(m.pos.legs&&m.pos.after&&(m.pos.after.kep||m.pos.after.follow))){const key=m.pos.kep||m.pos.after.kep||m.pos.after.follow;
-   if(sel||m.pos.kep)path(orbitPts(key),col+(sel?'aa':'40'),sel?1.6:1,[3,5])}
-  if(!m.L)continue;
-  for(const l of m.L){if(!sel&&!(sim>=l.t1&&sim<=l.t2)&&!(m.st==='future'&&l===m.L[0]))continue;
-   const f=t=>legPos(l,t),tc=Math.min(Math.max(sim,l.t1),l.t2);
-   if(m.st==='future'){path(curve(f,l.t1,l.t2,60),col+(sel?'cc':'55'),sel?1.8:1.2,[6,6]);continue}
-   const past=l.t2<sim; // segments déjà parcourus : fins et discrets ; segment en cours : épais
-   if(tc>l.t1){const pts=curve(f,l.t1,tc,40);if(past)path(pts,col+(sel?'66':'33'),1.1);else{if(sel)path(pts,col+'40',7);path(pts,col+(sel?'':'99'),sel?2.4:1.4)}}
-   if(tc<l.t2)path(curve(f,tc,l.t2,40),col+(sel?'bb':'66'),sel?1.8:1.2,[7,6])}}
- // pictogrammes + étiquettes (sans chevauchement)
+ const selM=byId[selId];
+ // trajectoire : uniquement pour la mission suivie (parcouru = trait, à venir = pointillés)
+ if(showTraj){const m=selM,col=m.col;
+  const key=m.pos.kep||(m.pos.after&&(m.pos.after.kep||m.pos.after.follow));if(key)path(orbitPts(key),col+'88',1.4,[3,5]);
+  if(m.L)for(const l of m.L){const f=t=>legPos(l,t),tc=Math.min(Math.max(sim,l.t1),l.t2);
+   if(m.st==='future'){path(curve(f,l.t1,l.t2,60),col+'cc',1.8,[6,6]);continue}
+   const past=l.t2<sim;
+   if(tc>l.t1){const pts=curve(f,l.t1,tc,40);if(past)path(pts,col+'45',1);else{path(pts,col+'40',7);path(pts,col,2.4)}}
+   if(tc<l.t2)path(curve(f,tc,l.t2,40),col+'bb',1.8,[7,6])}}
  drawnMarks=[];const placed=[];
  const avoid=[sun,...DECOR.map(d=>S(bodyPos(d[0],sim))),S(planet('earth',sim)),S(planet('mars',sim))];
  const fits=(x,y,w,h)=>{for(const r of placed)if(x<r[0]+r[2]&&x+w>r[0]&&y<r[1]+r[3]&&y+h>r[1])return false;placed.push([x,y,w,h]);return true};
- const order=shown.slice().sort((a,b)=>(b.id===selId)-(a.id===selId));
- for(const m of order){const p=mpos(m,sim);if(!p)continue;const q=S(p),sel=m.id===selId;
-  if(q[0]<-40||q[0]>W+40||q[1]<-40||q[1]>H+40){
-   if(sel||(m.kind==='voy'&&far)){const a=Math.atan2(q[1]-VY,q[0]-VX),hw=VW/2-30,hh=VH/2-30,k=Math.min(Math.abs(hw/Math.cos(a)),Math.abs(hh/Math.sin(a)));
-    const ex=VX+Math.cos(a)*k,ey=VY+Math.sin(a)*k;cx.save();cx.translate(ex,ey);cx.rotate(a);cx.fillStyle=m.col;cx.strokeStyle='#0b0d1f';cx.lineWidth=2;
-    cx.beginPath();cx.moveTo(12,0);cx.lineTo(-6,-7);cx.lineTo(-6,7);cx.closePath();cx.fill();cx.stroke();cx.restore();
-    label([ex-Math.cos(a)*34,ey-Math.sin(a)*34],m.name.toUpperCase()+' →',m.col,4);drawnMarks.push([m.id,[ex,ey]])}
-   continue}
-  const sz=sel?(far?18:24):(far?11:15),sa=Math.atan2(sun[1]-q[1],sun[0]-q[0]);
-  if(sel){const pulse=(now/1000)%1.6/1.6;cx.strokeStyle=`rgba(255,79,163,${1-pulse})`;cx.lineWidth=2;cx.beginPath();cx.arc(q[0],q[1],12+pulse*26,0,7);cx.stroke()}
-  if(m.st==='done')cx.globalAlpha=.75;
-  drawMission(cx,q,m,sz,now,sa);cx.globalAlpha=1;drawnMarks.push([m.id,q]);
-  cx.font='11px Bungee';const tw=cx.measureText(m.name.toUpperCase()).width+6;
-  if(sel||(!avoid.some(a=>Math.hypot(a[0]-q[0],a[1]-q[1])<34)&&fits(q[0]-tw/2,q[1]-sz-22,tw,15)))label(q,m.name.toUpperCase(),sel?'#fff3d6':m.col,-sz-10)}
+ // autres missions : pastilles, regroupées quand elles se chevauchent
+ const clusters=[];
+ for(const m of shown){if(m.id===selId)continue;const p=mpos(m,sim);if(!p)continue;const q=S(p);
+  if(q[0]<-20||q[0]>W+20||q[1]<-20||q[1]>H+20){if(m.kind==='voy'&&far)offArrow(m,q);continue}
+  const c=clusters.find(c=>Math.hypot(c.q[0]-q[0],c.q[1]-q[1])<16);if(c)c.ms.push(m);else clusters.push({q,ms:[m]})}
+ const sp=mpos(selM,sim),sq=sp?S(sp):null;if(sq)placed.push([sq[0]-34,sq[1]-60,68,80]);
+ for(const c of clusters){const x=c.q[0],y=c.q[1];
+  if(c.ms.length===1){const m=c.ms[0];cx.globalAlpha=m.st==='done'?.7:1;
+   if(!far&&cam.s*AU>400)drawMission(cx,c.q,m,14,now,Math.atan2(sun[1]-y,sun[0]-x));
+   else{cx.fillStyle=m.col;cx.strokeStyle='#0b0d1f';cx.lineWidth=2.5;cx.beginPath();cx.arc(x,y,5.5,0,7);cx.fill();cx.stroke();cx.strokeStyle='rgba(255,243,214,.8)';cx.lineWidth=1;cx.beginPath();cx.arc(x,y,8.5,0,7);cx.stroke()}
+   cx.globalAlpha=1;drawnMarks.push([m.id,c.q,[m]]);
+   cx.font='10px Bungee';const tw=cx.measureText(m.name).width+6;
+   if(!avoid.some(a=>Math.hypot(a[0]-x,a[1]-y)<30)&&fits(x+10,y-8,tw,15)){cx.textAlign='left';cx.lineWidth=4;cx.strokeStyle='#0b0d1f';cx.strokeText(m.name,x+12,y+4);cx.fillStyle=m.col;cx.fillText(m.name,x+12,y+4)}}
+  else{ // badge de groupe : anneau aux couleurs des missions + nombre
+   const n=c.ms.length,r=11;c.ms.forEach((m,i)=>{cx.strokeStyle=m.col;cx.lineWidth=4;cx.beginPath();cx.arc(x,y,r,i/n*2*Math.PI-1.57,(i+1)/n*2*Math.PI-1.57);cx.stroke()});
+   cx.fillStyle='#0b0d1f';cx.beginPath();cx.arc(x,y,r-2,0,7);cx.fill();cx.fillStyle='#fff3d6';cx.font='11px Bungee';cx.textAlign='center';cx.fillText(n,x,y+4);
+   drawnMarks.push(['cluster',c.q,c.ms])}}
+ // mission suivie : pictogramme, halo et cartouche
+ if(sq){const x=sq[0],y=sq[1];
+  if(x<-40||x>W+40||y<-40||y>H+40)offArrow(selM,sq);
+  else{const sz=far?18:(W<760?17:24),pulse=(now/1000)%1.6/1.6;cx.strokeStyle=`rgba(255,79,163,${1-pulse})`;cx.lineWidth=2;cx.beginPath();cx.arc(x,y,12+pulse*26,0,7);cx.stroke();
+   drawMission(cx,sq,selM,sz,now,Math.atan2(sun[1]-y,sun[0]-x));drawnMarks.push([selM.id,sq,[selM]]);
+   cx.font='12px Bungee';const t=selM.name.toUpperCase(),tw=cx.measureText(t).width+14;cx.fillStyle='#fff3d6';cx.strokeStyle='#0b0d1f';cx.lineWidth=2.5;
+   cx.beginPath();cx.rect(x-tw/2,y-sz-36,tw,20);cx.fill();cx.stroke();cx.fillStyle='#0b0d1f';cx.textAlign='center';cx.fillText(t,x,y-sz-21);
+   cx.fillStyle=selM.col;cx.fillRect(x-tw/2+2,y-sz-18,tw-4,3)}}
 
  // scale bar
  const nice=[1e3,2e3,5e3,1e4,2e4,5e4,1e5,2e5,5e5,1e6,2e6,5e6,1e7,2e7,5e7,1e8,2e8,5e8,1e9,2e9,5e9,1e10,2e10,5e10,1e11,2e11,5e11,1e12,2e12,5e12,1e13];let best=nice[0];for(const n of nice)if(n*cam.s<160)best=n;
@@ -763,9 +791,9 @@ function buildCard(m){cardFor=m.id;cardSt=m.st;
  const dates=[['Lancement',m.launchLbl&&m.st==='future'?m.launchLbl:fdate(m.launch)],['Destination',m.dest]];
  if(m.arrive)dates.push([m.arrive>sim?'Arrivée prévue':'Arrivée',fdate(m.arrive)]);if(m.end)dates.push([m.end>sim?'Fin prévue':'Fin',fdate(m.end)]);
  $id('card').innerHTML=`<div class="cardHead"><canvas id="mIcon" width="152" height="152"></canvas><div><div class="mName">${esc(m.name)}</div><div class="mFull">${esc(m.full)} · ${esc(m.agency)}</div><span class="tag stat ${m.st}">${STL[m.st]}</span></div></div>
- <div class="lbl">Contribution de l'Observatoire de Paris</div><ul class="contrib">${m.contrib.map(c=>`<li><b>${esc(c[0])}</b>${esc(c[1])}</li>`).join('')}</ul>
- <div class="grid">${dates.map(d=>`<div><span>${d[0]}</span>${esc(d[1])}</div>`).join('')}</div>
- <div class="dyn" id="dyn" style="margin-top:12px"></div>
+ <div class="dyn" id="dyn"></div>
+ <div class="grid card-sec">${dates.map(d=>`<div><span>${d[0]}</span>${esc(d[1])}</div>`).join('')}</div>
+ <div class="lbl card-sec">Contribution de l'Observatoire de Paris</div><ul class="contrib">${m.contrib.map(c=>`<li><b>${esc(c[0])}</b>${esc(c[1])}</li>`).join('')}</ul>
  <p class="desc">${esc(m.desc)}</p>
  <div class="srcs">Sources : ${m.src.map(s=>`<a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>`).join(' · ')}</div>`;
  $id('milesName').textContent=m.name;
@@ -773,12 +801,16 @@ function buildCard(m){cardFor=m.id;cardSt=m.st;
 function buildList(){const cnt={live:0,done:0,future:0};for(const m of MISSIONS)cnt[m.st]++;
  document.querySelectorAll('#ltabs button').forEach(b=>{b.classList.toggle('on',b.dataset.l===listTab);b.querySelector('i').textContent='('+cnt[b.dataset.l]+')'});
  const L=MISSIONS.filter(m=>m.st===listTab);
- $id('mlist2').innerHTML=L.length?L.map(m=>`<li data-id="${m.id}" class="${m.id===selId?'sel':''}"><span class="dot" style="background:${m.col}"></span><div><b>${esc(m.name)}</b><small>${esc(m.dest)} · ${esc(m.agency)}</small></div></li>`).join(''):'<li class="empty">Aucune mission dans cette catégorie à cette date.</li>';
+ $id('mlist2').innerHTML=L.length?L.map(m=>`<li data-id="${m.id}" class="${m.id===selId?'sel':''}"><span class="dot" style="background:${m.col}"></span><div><b>${esc(m.name)}</b><small>${esc(m.dest)} · ${esc(m.agency)}</small></div><span class="when">${when(m)}</span></li>`).join(''):'<li class="empty">Aucune mission dans cette catégorie à cette date.</li>';
  listSig=listTab+L.map(m=>m.id).join()+selId}
 let listSig='';
+function when(m){const y=ms=>new Date(ms).getUTCFullYear();
+ if(m.st==='future')return 'départ '+(m.launchLbl&&m.launchLbl.length<12?m.launchLbl:y(m.launch));
+ if(m.st==='done')return y(m.launch)+'–'+y(m.end);
+ if(m.arrive&&sim<m.arrive)return 'arrivée '+y(m.arrive);return 'depuis '+y(m.launch)}
 $id('ltabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;listTab=b.dataset.l;buildList()});
 $id('mlist2').addEventListener('click',e=>{const li=e.target.closest('li[data-id]');if(li)select(li.dataset.id,true)});
-function select(id,follow){selId=id;const m=byId[id];if(m.st!==listTab){listTab=m.st}buildCard(m);buildList();
+function select(id,follow){selId=id;const m=byId[id];$id('selBtn').textContent='◎ '+m.name;if(m.st!==listTab){listTab=m.st}buildCard(m);buildList();
  if(follow&&mpos(m,sim))setView('sel');
  if(document.body.classList.contains('mobile')&&follow){tab='card';$id('sheet').classList.remove('closed');showTab();window.__refit&&window.__refit()}}
 let lastHud=0;

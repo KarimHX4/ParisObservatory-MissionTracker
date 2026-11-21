@@ -114,13 +114,6 @@ const MISSIONS=[
  miles:[[U(1977,9,5),'Lancement'],[U(1979,3,5),'Survol de Jupiter'],[U(1980,11,12),'Survol de Saturne'],[U(2012,8,25),'Entrée dans l\'espace interstellaire']],
  src:[['MASER – données Voyager/PRA','https://maser.lesia.obspm.fr/task-1-data-collections/maser-datasets/maser-datasets-obsparis-lesia.html']]},
 
-{id:'voyager2',name:'Voyager 2',full:'Voyager 2',agency:'NASA',col:'#ffb36b',kind:'voy',type:'Sonde interstellaire',dest:'Espace interstellaire',
- launch:U(1977,8,20),pos:{voy:1},
- contrib:[['LESIA','Co-investigateur de l\'expérience radio planétaire PRA ; archive et diffusion des données PRA.']],
- desc:'Seule sonde à avoir survolé Uranus et Neptune, dans l\'espace interstellaire depuis 2018.',
- miles:[[U(1977,8,20),'Lancement'],[U(1979,7,9),'Survol de Jupiter'],[U(1981,8,26),'Survol de Saturne'],[U(1986,1,24),'Survol d\'Uranus'],[U(1989,8,25),'Survol de Neptune'],[U(2018,11,5),'Entrée dans l\'espace interstellaire']],
- src:[['MASER – données Voyager/PRA','https://maser.lesia.obspm.fr/task-1-data-collections/maser-datasets/maser-datasets-obsparis-lesia.html']]},
-
 {id:'aces',name:'ACES · PHARAO',full:'Atomic Clock Ensemble in Space',agency:'ESA · CNES',col:'#41e0ff',kind:'station',type:'Horloge atomique sur l\'ISS',dest:'Station spatiale internationale',
  launch:U(2025,4,21),end:U(2028,4,21),endLbl:'fin prévue (durée nominale 3 ans)',pos:{lag:'LEO',ph:0},
  contrib:[['LTE (ex-SYRTE)','Impliqué depuis l\'origine dans l\'horloge à atomes froids de césium PHARAO, cœur de la mission.']],
