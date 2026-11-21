@@ -249,6 +249,7 @@ body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
 <div id="sheet"><div id="tabs"><button data-t="list" class="on">Missions</button><button data-t="card">Fiche</button><button data-t="miles">Jalons</button><button data-t="note">Infos</button></div><div id="pane"></div></div>
 
 <script src="missions.js"></script>
+<script src="sprites.js"></script>
 <script>
 (()=>{
 // ---------- mise en page téléphone : en-tête compact, barre du bas, tiroir à onglets ----------
@@ -649,6 +650,7 @@ function offArrow(m,q){const a=Math.atan2(q[1]-VY,q[0]-VX),hw=VW/2-30,hh=VH/2-30
 function drawMission(c,q,m,sz,t,sunAng){
  if(m.kind==='mmx')drawProbe(c,q,sz*1.6,sunAng+Math.PI/2,t,false);
  else if(m.kind==='voy')drawVoyager(c,q,sunAng,sz/22,m.col,t);
+ else if(SPR.has(m.id))SPR.draw(c,q,m.id,sz*2.8,0,false);
  else drawIcon(c,q,m.kind,m.col,sz,0,t)}
 
 let frameErr=0,drawnMarks=[];
@@ -819,7 +821,7 @@ function hud(now){const m=byId[selId];
  if(cardFor!==m.id||cardSt!==m.st)buildCard(m);
  // grande icône animée
  const ic=$id('mIcon');if(ic){const g=ic.getContext('2d');g.clearRect(0,0,152,152);const bob=Math.sin(now/700)*3;
-  if(m.kind==='mmx')drawProbe(g,[76,80+bob],120,Math.sin(now/2300)*.06,now,true);else if(m.kind==='voy')drawVoyager(g,[70,76+bob],0,3.4,m.col,now);else drawIcon(g,[76,78+bob],m.kind,m.col,86,Math.sin(now/2300)*.06,now)}
+  if(m.kind==='mmx')drawProbe(g,[76,80+bob],120,Math.sin(now/2300)*.06,now,true);else if(m.kind==='voy')drawVoyager(g,[70,76+bob],0,3.4,m.col,now);else if(SPR.has(m.id))SPR.draw(g,[76,78+bob],m.id,128,Math.sin(now/2300)*.06,true);else drawIcon(g,[76,78+bob],m.kind,m.col,86,Math.sin(now/2300)*.06,now)}
  $id('simdate').textContent=new Date(sim).toLocaleString('fr-FR',document.body.classList.contains('mobile')?{dateStyle:'medium',timeStyle:'medium'}:{dateStyle:'full',timeStyle:'medium'});
  if(now-lastHud<200)return;lastHud=now;
  const p=mpos(m,sim),E=planet('earth',sim);let h='',mini='';
