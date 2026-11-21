@@ -1,0 +1,18 @@
+{
+  "name": "Mission Tracker — Observatoire de Paris (non officiel)",
+  "short_name": "Mission Tracker",
+  "description": "Carte du Système solaire avec les missions spatiales auxquelles participe l'Observatoire de Paris – PSL (site non officiel).",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0d1f",
+  "theme_color": "#11163a",
+  "icons": [
+    { "src": "icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
