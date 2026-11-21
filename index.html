@@ -172,6 +172,14 @@ body.mobile #installBtn{margin:0 0 0 6px;vertical-align:4px;font-size:8px;paddin
 #mlist2 li small{font-size:9.5px;opacity:.75}
 #mlist2 .empty{opacity:.7;font-size:11px;cursor:default}
 #miles{max-height:30%!important}
+#title h1{font-size:28px;white-space:nowrap;overflow:hidden}
+#title .sub{font-size:9.5px;letter-spacing:1.2px;line-height:1.4}
+.ptitle{font-family:'Bungee Shade',cursive;font-size:21px;line-height:1;color:var(--yellow);letter-spacing:1px;margin:0 0 4px}
+.ptitle small{font-family:'Bungee';font-size:11px;color:var(--cream);letter-spacing:1px;margin-left:6px}
+.mName{white-space:nowrap;overflow:hidden}
+.ptitle{white-space:nowrap;overflow:hidden}
+.cardHead>div{min-width:0}
+#card,#list,#miles,#title{overflow-x:hidden}
 #tip{position:fixed;z-index:8;pointer-events:none;background:var(--night);border:2px solid var(--cream);box-shadow:3px 3px 0 var(--orange);padding:6px 9px;font-size:11px;max-width:260px}
 #tip div{display:flex;align-items:center;gap:6px;font-family:'Bungee';font-size:11px;margin:2px 0}
 #tip div small{font-family:'Space Mono';font-size:9.5px;opacity:.75;margin-left:4px}
@@ -206,12 +214,12 @@ body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
 
 <div class="col" id="rightcol">
 <div class="panel" id="list">
-  <div class="lbl">Missions</div>
+  <div class="ptitle">Missions</div>
   <div id="ltabs"><button data-l="live" class="on">En cours <i></i></button><button data-l="done">Terminées <i></i></button><button data-l="future">Futures <i></i></button></div>
   <ul id="mlist2"></ul>
 </div>
 <div class="panel" id="miles">
-  <div class="lbl">Jalons · <span id="milesName"></span></div>
+  <div class="ptitle">Jalons<small id="milesName"></small></div>
   <ol id="mlist"></ol>
 </div>
 </div>
@@ -254,6 +262,9 @@ body.mobile #mIcon{width:60px;height:60px;flex-basis:60px}
 (()=>{
 // ---------- mise en page téléphone : en-tête compact, barre du bas, tiroir à onglets ----------
 const $id=id=>document.getElementById(id);
+// ajuste la taille d'un titre pour qu'il tienne sur une ligne dans son cadre (selon la police réellement chargée)
+function fitText(el,max,min){if(!el)return;let f=max;el.style.fontSize=f+'px';while(el.scrollWidth>el.clientWidth+1&&f>min){f-=1;el.style.fontSize=f+'px'}}
+function fitAll(){const mob=document.body.classList.contains('mobile');const h1=document.querySelector('#title h1');if(mob)h1.style.fontSize='';else fitText(h1,30,12);document.querySelectorAll('.ptitle').forEach(e=>fitText(e,21,11));fitText(document.querySelector('.mName'),26,12)}
 const MQ=matchMedia('(max-width:760px), (max-height:500px) and (max-width:1000px)');
 let tab='list';
 function placeSheet(){if(!document.body.classList.contains('mobile'))return;$id('sheet').style.bottom=$id('views').offsetHeight-3+'px'}
@@ -268,7 +279,7 @@ $id('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!
  if(window.__refit)window.__refit()});
 applyMobile();
 if(window.ResizeObserver){const ro=new ResizeObserver(()=>{if(!document.body.classList.contains('mobile'))return;placeSheet();window.__refit&&window.__refit()});ro.observe($id('views'));ro.observe($id('title'))}
-MQ.addEventListener?MQ.addEventListener('change',()=>{applyMobile();window.__refit&&window.__refit()}):MQ.addListener(()=>{applyMobile();window.__refit&&window.__refit()});
+MQ.addEventListener?MQ.addEventListener('change',()=>{applyMobile();fitAll();window.__refit&&window.__refit()}):MQ.addListener(()=>{applyMobile();window.__refit&&window.__refit()});
 // ---------- constants ----------
 const AU=149597870.7, MU=1.32712440018e11, DEG=Math.PI/180, C_KMS=299792.458;
 const R_EARTH=6371, R_MARS=3389.5, R_MOON=1737, R_SUN=696000;
@@ -798,7 +809,7 @@ function buildCard(m){cardFor=m.id;cardSt=m.st;
  <div class="lbl card-sec">Contribution de l'Observatoire de Paris</div><ul class="contrib">${m.contrib.map(c=>`<li><b>${esc(c[0])}</b>${esc(c[1])}</li>`).join('')}</ul>
  <p class="desc">${esc(m.desc)}</p>
  <div class="srcs">Sources : ${m.src.map(s=>`<a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>`).join(' · ')}</div>`;
- $id('milesName').textContent=m.name;
+ $id('milesName').textContent=m.name;fitAll();
  $id('mlist').innerHTML=m.miles.map(x=>`<li><b>${fdate(x[0])}</b>${esc(x[1])}</li>`).join('')}
 function buildList(){const cnt={live:0,done:0,future:0};for(const m of MISSIONS)cnt[m.st]++;
  document.querySelectorAll('#ltabs button').forEach(b=>{b.classList.toggle('on',b.dataset.l===listTab);b.querySelector('i').textContent='('+cnt[b.dataset.l]+')'});
@@ -838,8 +849,8 @@ function hud(now){const m=byId[selId];
 for(const m of MISSIONS)m.st=status(m,sim);
 select('mmx',false);marks();setView('sys');cam.s=goalS;requestAnimationFrame(frame);
 window.__refit=()=>{resize();if(target.view!=='free')setView(target.view)};
-addEventListener('resize',window.__refit);
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{layout();if(target.view!=='free'){setView(target.view);cam.s=goalS}});
+addEventListener('resize',()=>{window.__refit();fitAll()});fitAll();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{fitAll();layout();if(target.view!=='free'){setView(target.view);cam.s=goalS}});
 })();
 </script>
 <script>
