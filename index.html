@@ -437,6 +437,7 @@ $id('trajBtn').onclick=()=>{showTraj=!showTraj;$id('trajBtn').classList.toggle('
 
 function viewCenter(){const v=target.view,t=sim;
  if(v==='earth')return planet('earth',t);if(v==='mars')return planet('mars',t);
+ if(v==='tour')return tour?tour.c:[0,0,0];
  if(v==='sel'){const p=mpos(byId[selId],t);return p||[cam.x,cam.y,0]}
  if(v.startsWith('b:'))return bodyPos(v.slice(2),t);return[0,0,0]}
 function selScale(m){const P=m.pos,t=sim,mm=Math.max(60,Math.min(VW,VH));
@@ -445,7 +446,7 @@ function selScale(m){const P=m.pos,t=sim,mm=Math.max(60,Math.min(VW,VH));
  let A=P.at;if(P.legs&&t>m.L[m.L.length-1].t2){A=P.after.at||(P.after.near&&t>=P.after.near.until?P.after.then.at:null);if(P.after.follow||P.after.kep)return mm/(0.5*AU)}
  if(A){const R=A.moon?MOONS.find(x=>x[1]===A.moon)[4]:RAD[A.b];return A.surf?mm/(R*8):mm/(Math.max(A.r*3.2,R*12))}
  if(P.kep||P.stereo)return mm/(0.6*AU);return mm/(0.25*AU)}
-function setView(v){target.view=v;
+function setView(v){if(v==='tour'&&tour){target.view='tour';return}if(v==='tour')v='sys';target.view=v;
  const m=Math.max(60,Math.min(VW,VH)||0);if(v.startsWith('b:')){const n=v.slice(2),ms=MOONS.filter(x=>x[0]===n).map(x=>x[2]),d=DECOR.find(x=>x[0]===n);
   goalS=m/(n==='sultana'?0.35*AU:ms.length?Math.max(...ms)*2.7:Math.max(d[1]*60,2e6));document.querySelectorAll('[data-v]').forEach(b=>b.classList.remove('on'));return}
  if(v==='sel'){const M=byId[selId];if(!mpos(M,sim)){target.view='sys';return setView('sys')}goalS=selScale(M)}
@@ -457,20 +458,36 @@ document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{if(tour)tourStop
 function marks(){document.getElementById('live').classList.toggle('on',live);
  document.querySelectorAll('[data-s]').forEach(b=>b.classList.toggle('on',!live&&+b.dataset.s===speed));
  const t=document.getElementById('modeTag');t.textContent=live?'● EN DIRECT':'▶ SIMULATION ×'+speed.toLocaleString('fr');t.classList.toggle('live',live)}
-// ---------- « Un voyage à travers le temps » : du premier lancement à aujourd'hui en ~50 s ----------
-const TOUR_T0=Math.min(...MISSIONS.map(m=>m.launch))-30*864e5,TOUR_DUR=50000;
+// ---------- « Un voyage à travers le temps » : du premier lancement à aujourd'hui en ~2 min 15 ----------
+const TOUR_T0=Math.min(...MISSIONS.map(m=>m.launch))-60*864e5,TOUR_DUR=135000,YR=365.25*864e5;
 let tour=null,tourEvT=0;
+// carte temps réel → date : chaque événement (lancement, arrivée, fin) « attire » du temps d'écran,
+// les années creuses passent plus vite ; départ et arrivée en douceur
+function tourMap(t1){const N=1600,ev=[];for(const m of MISSIONS)for(const t of[m.launch,m.arrive,m.end])if(t&&t>=TOUR_T0&&t<=t1)ev.push(t);
+ const ts=[],cum=[0];for(let k=0;k<=N;k++)ts.push(TOUR_T0+(t1-TOUR_T0)*k/N);
+ const w=t=>{let v=.55;for(const e of ev){const d=(t-e)/(.45*YR);v+=Math.exp(-d*d)}const u=(t-TOUR_T0)/(t1-TOUR_T0);return v*(1+1.6*Math.exp(-u*u*40)+2.2*Math.exp(-(1-u)*(1-u)*120))};
+ for(let k=1;k<=N;k++)cum.push(cum[k-1]+w((ts[k]+ts[k-1])/2));const tot=cum[N];
+ return f=>{const c=f*tot;let lo=0,hi=N;while(hi-lo>1){const md=(lo+hi)>>1;if(cum[md]<c)lo=md;else hi=md}const a=(c-cum[lo])/((cum[hi]-cum[lo])||1);return ts[lo]+(ts[hi]-ts[lo])*a}}
 function tourStop(back){tour=null;$id('tourBtn').classList.remove('on');$id('tourBtn').textContent='⏳ Un voyage à travers le temps';$id('tourBan').hidden=true;
- if(back){live=true;speed=1;sim=Date.now();marks()}}
+ if(back){live=true;speed=1;sim=Date.now();marks();setView('sys')}else if(target.view==='tour')setView('sys')}
 $id('tourBtn').onclick=()=>{if(tour)return tourStop(true);
- tour={start:performance.now(),end:Date.now(),prev:TOUR_T0};live=false;speed=0;sim=TOUR_T0;listTab='live';setView('sys');
+ const end=Date.now();tour={start:performance.now(),end,map:tourMap(end),c:[0,0,0],s:goalS};live=false;speed=0;sim=TOUR_T0;listTab='live';
+ target.view='tour';document.querySelectorAll('[data-v]').forEach(b=>b.classList.remove('on'));
  $id('tourBtn').classList.add('on');$id('tourBtn').textContent='■ Arrêter le voyage';$id('tourBan').hidden=false;$id('tourEv').textContent='';marks();
  $id('modeTag').textContent='⏳ VOYAGE DANS LE TEMPS'};
-function tourStep(now){const f=Math.min(1,(now-tour.start)/TOUR_DUR),e=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2; // accélère puis ralentit en arrivant à aujourd'hui
- const prev=sim;sim=TOUR_T0+(tour.end-TOUR_T0)*e;
+// cadrage automatique : toutes les missions en cours (+ Soleil et Terre), sauf Voyager quand elle a quitté le système interne
+function tourFrame(){const pts=[[0,0],planet('earth',sim)];
+ for(const m of MISSIONS){if(m.st!=='live')continue;const p=mpos(m,sim);if(!p)continue;if(m.pos.voy!==undefined&&norm(p)>11*AU)continue;pts.push(p)}
+ // centré sur le Soleil (cadre stable, orbites lisibles), assez large pour contenir toutes les missions
+ let rx=1.25*AU,ry=1.25*AU;for(const p of pts){rx=Math.max(rx,Math.abs(p[0])+.5*AU);ry=Math.max(ry,Math.abs(p[1])+.5*AU)}
+ const mob=document.body.classList.contains('mobile'),top=mob?0:110,gs=Math.min(VW*.86/(2*rx),Math.max(60,VH-top)*.86/(2*ry)),c=[0,top/2/gs,0];
+ // lissage pour éviter les à-coups quand une mission apparaît ou disparaît
+ tour.c[0]+=(c[0]-tour.c[0])*.03;tour.c[1]+=(c[1]-tour.c[1])*.03;tour.s*=Math.pow(gs/tour.s,.05);goalS=tour.s}
+function tourStep(now){const f=Math.min(1,(now-tour.start)/TOUR_DUR);
+ const prev=sim;sim=tour.map(f);
  const ev=[];for(const m of MISSIONS){if(prev<m.launch&&m.launch<=sim)ev.push('🚀 Lancement : '+m.name);if(m.arrive&&prev<m.arrive&&m.arrive<=sim)ev.push('🎯 Arrivée : '+m.name);if(m.end&&prev<m.end&&m.end<=sim)ev.push('🏁 Fin : '+m.name)}
- if(ev.length){$id('tourEv').textContent=ev.join(' · ');tourEvT=now}else if(now-tourEvT>2500)$id('tourEv').textContent='';
- $id('tourYear').textContent=new Date(sim).getUTCFullYear();$id('tourBar').style.width=f*100+'%';
+ if(ev.length){$id('tourEv').textContent=ev.join(' · ');tourEvT=now}else if(now-tourEvT>3500)$id('tourEv').textContent='';
+ const d=new Date(sim);$id('tourYear').textContent=d.getUTCFullYear();$id('tourBar').style.width=f*100+'%';
  if(f>=1){tourStop(true);$id('tourEv').textContent=''}}
 const SL0=Date.UTC(1977,7,1),SL1=Date.UTC(2036,0,1),slider=document.getElementById('slider');
 slider.oninput=()=>{if(tour)tourStop(false);live=false;speed=speed===1?2592000:speed;sim=SL0+(SL1-SL0)*slider.value/1000;marks()};
@@ -704,6 +721,7 @@ function drawFrame(now){
  if(tour)tourStep(now);else if(live)sim=Date.now();else{sim+=dt*speed;if(sim>SL1){sim=SL1}}
  slider.value=Math.max(0,Math.min(1000,(sim-SL0)/(SL1-SL0)*1000));
  for(const m of MISSIONS)m.st=status(m,sim);
+ if(tour&&target.view==='tour')tourFrame();
  // camera
  cam.s*=Math.pow(goalS/cam.s,.08);
  if(target.view!=='free'){const c=viewCenter();cam.x+=(c[0]-cam.x)*.25;cam.y+=(c[1]-cam.y)*.25;
@@ -767,10 +785,10 @@ function drawFrame(now){
   cx.fillStyle='rgba(255,255,255,.8)';cx.beginPath();cx.ellipse(q[0],q[1]-r*.92,r*.35,r*.12,0,0,7);cx.fill();cx.restore()});
 
  // ---------- missions ----------
- const shown=MISSIONS.filter(m=>m.st===listTab||m.id===selId);
- const selM=byId[selId];
+ const selM=byId[selId],selHere=!tour||selM.st==='live';
+ const shown=MISSIONS.filter(m=>m.st===listTab||(m.id===selId&&selHere));
  // trajectoire : uniquement pour la mission suivie (parcouru = trait, à venir = pointillés)
- if(showTraj){const m=selM,col=m.col;
+ if(showTraj&&selHere){const m=selM,col=m.col;
   const key=m.pos.kep||(m.pos.after&&(m.pos.after.kep||m.pos.after.follow));if(key)path(orbitPts(key),col+'88',1.4,[3,5]);
   if(m.L)for(const l of m.L){const f=t=>legPos(l,t),tc=Math.min(Math.max(sim,l.t1),l.t2);
    if(m.st==='future'){path(curve(f,l.t1,l.t2,60),col+'cc',1.8,[6,6]);continue}
@@ -785,7 +803,7 @@ function drawFrame(now){
  for(const m of shown){if(m.id===selId)continue;const p=mpos(m,sim);if(!p)continue;const q=S(p);
   if(q[0]<-20||q[0]>W+20||q[1]<-20||q[1]>H+20){if(m.kind==='voy'&&far)offArrow(m,q);continue}
   const c=clusters.find(c=>Math.hypot(c.q[0]-q[0],c.q[1]-q[1])<16);if(c)c.ms.push(m);else clusters.push({q,ms:[m]})}
- const sp=mpos(selM,sim),sq=sp?S(sp):null;if(sq)placed.push([sq[0]-34,sq[1]-60,68,80]);
+ const sp=selHere?mpos(selM,sim):null,sq=sp?S(sp):null;if(sq)placed.push([sq[0]-34,sq[1]-60,68,80]);
  for(const c of clusters){const x=c.q[0],y=c.q[1];
   if(c.ms.length===1){const m=c.ms[0];cx.globalAlpha=m.st==='done'?.7:1;
    if(!far&&cam.s*AU>400)drawMission(cx,c.q,m,14,now,Math.atan2(sun[1]-y,sun[0]-x));

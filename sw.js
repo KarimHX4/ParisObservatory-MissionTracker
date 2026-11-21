@@ -1,5 +1,5 @@
 // Mission Tracker — service worker : fonctionne hors ligne, et récupère la dernière version de la page dès qu'il y a du réseau.
-const CACHE = 'obspm-tracker-v5';
+const CACHE = 'obspm-tracker-v6';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './missions.js', './sprites.js', './icons/app-192.png', './icons/app-512.png', './icons/app-180.png'];
 
 self.addEventListener('install', e => {
